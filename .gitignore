@@ -1,0 +1,20 @@
+# Target/build outputs
+target/
+*.db
+
+# IDE configuration
+.idea/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.factorypath
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Log files
+*.log
