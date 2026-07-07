@@ -5,12 +5,15 @@ import com.notification.dto.NotificationResponseDto;
 import com.notification.entity.Notification;
 import com.notification.enums.NotificationStatus;
 import com.notification.exception.BusinessException;
+import com.notification.queue.NotificationProcessor;
 import com.notification.repository.NotificationRepository;
 import com.notification.service.NotificationService;
 import com.notification.util.NotificationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 
@@ -20,6 +23,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationMapper notificationMapper;
+    private final NotificationProcessor notificationProcessor;
 
     @Override
     @Transactional
@@ -48,6 +52,14 @@ public class NotificationServiceImpl implements NotificationService {
 
         // Save entity
         Notification savedNotification = notificationRepository.save(notification);
+
+        // Submit background task for asynchronous processing after transaction commit
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                notificationProcessor.processNotificationAsync(savedNotification);
+            }
+        });
 
         // Map Entity to DTO and return
         return notificationMapper.toResponseDto(savedNotification);
