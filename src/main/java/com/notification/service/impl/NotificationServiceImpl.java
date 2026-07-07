@@ -4,6 +4,9 @@ import com.notification.dto.NotificationRequestDto;
 import com.notification.dto.NotificationResponseDto;
 import com.notification.entity.Notification;
 import com.notification.enums.NotificationStatus;
+import com.notification.enums.NotificationType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.notification.exception.BusinessException;
 import com.notification.queue.NotificationProcessor;
 import com.notification.repository.NotificationRepository;
@@ -63,5 +66,12 @@ public class NotificationServiceImpl implements NotificationService {
 
         // Map Entity to DTO and return
         return notificationMapper.toResponseDto(savedNotification);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<NotificationResponseDto> getNotifications(NotificationStatus status, NotificationType type, Pageable pageable) {
+        Page<Notification> notificationsPage = notificationRepository.findAllByFilters(status, type, pageable);
+        return notificationsPage.map(notificationMapper::toResponseDto);
     }
 }
