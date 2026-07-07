@@ -13,6 +13,8 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import java.util.List;
+
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
     boolean existsByUserIdAndTypeAndMessageAndCreatedAtAfter(Long userId, NotificationType type, String message, LocalDateTime time);
@@ -25,4 +27,13 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
             @Param("type") NotificationType type,
             Pageable pageable
     );
+
+    @Query("SELECT n.status, COUNT(n) FROM Notification n GROUP BY n.status")
+    List<Object[]> countGroupedByStatus();
+
+    @Query("SELECT COALESCE(SUM(n.retryCount), 0) FROM Notification n")
+    long sumRetryCount();
+
+    @Query("SELECT n.type, COUNT(n) FROM Notification n GROUP BY n.type")
+    List<Object[]> countGroupedByType();
 }

@@ -21,6 +21,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 
 import com.notification.exception.ResourceNotFoundException;
+import com.notification.dto.DashboardResponseDto;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -116,5 +118,46 @@ public class NotificationServiceImpl implements NotificationService {
         });
 
         return notificationMapper.toResponseDto(savedNotification);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardResponseDto getDashboardStats() {
+        List<Object[]> statusCounts = notificationRepository.countGroupedByStatus();
+        long totalNotifications = 0;
+        long sentCount = 0;
+        long failedCount = 0;
+
+        for (Object[] row : statusCounts) {
+            NotificationStatus status = (NotificationStatus) row[0];
+            long count = (long) row[1];
+            totalNotifications += count;
+            if (status == NotificationStatus.SENT) {
+                sentCount = count;
+            } else if (status == NotificationStatus.FAILED) {
+                failedCount = count;
+            }
+        }
+
+        long totalRetries = notificationRepository.sumRetryCount();
+
+        List<Object[]> typeCounts = notificationRepository.countGroupedByType();
+        java.util.Map<String, Long> typeWiseStats = new java.util.HashMap<>();
+        for (NotificationType type : NotificationType.values()) {
+            typeWiseStats.put(type.name(), 0L);
+        }
+        for (Object[] row : typeCounts) {
+            NotificationType type = (NotificationType) row[0];
+            long count = (long) row[1];
+            typeWiseStats.put(type.name(), count);
+        }
+
+        return DashboardResponseDto.builder()
+                .totalNotifications(totalNotifications)
+                .sentCount(sentCount)
+                .failedCount(failedCount)
+                .retryCount(totalRetries)
+                .typeWiseStatistics(typeWiseStats)
+                .build();
     }
 }
