@@ -20,6 +20,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 
+import com.notification.exception.ResourceNotFoundException;
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
@@ -73,5 +76,45 @@ public class NotificationServiceImpl implements NotificationService {
     public Page<NotificationResponseDto> getNotifications(NotificationStatus status, NotificationType type, Pageable pageable) {
         Page<Notification> notificationsPage = notificationRepository.findAllByFilters(status, type, pageable);
         return notificationsPage.map(notificationMapper::toResponseDto);
+    }
+
+    @Override
+    @Transactional
+    public NotificationResponseDto retryNotification(UUID id) {
+        Notification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found with id: " + id));
+
+        // Rule 1: Status must be FAILED
+        if (notification.getStatus() != NotificationStatus.FAILED) {
+            throw new BusinessException("Notification status must be FAILED to retry.");
+        }
+
+        // Rule 2: Retry count less than 3
+        if (notification.getRetryCount() >= 3) {
+            throw new BusinessException("Notification has reached the maximum retry limit of 3.");
+        }
+
+        // Rule 3: Last retry must be older than 2 minutes (if last retry exists)
+        if (notification.getLastRetryTime() != null && 
+                notification.getLastRetryTime().isAfter(LocalDateTime.now().minusMinutes(2))) {
+            throw new BusinessException("Last retry was less than 2 minutes ago.");
+        }
+
+        // Increment retry count, change status, update last retry time
+        notification.setRetryCount(notification.getRetryCount() + 1);
+        notification.setStatus(NotificationStatus.RETRYING);
+        notification.setLastRetryTime(LocalDateTime.now());
+
+        Notification savedNotification = notificationRepository.save(notification);
+
+        // Submit task again to ExecutorService after transaction commits
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                notificationProcessor.processNotificationAsync(savedNotification);
+            }
+        });
+
+        return notificationMapper.toResponseDto(savedNotification);
     }
 }

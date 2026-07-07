@@ -14,6 +14,8 @@ import com.notification.enums.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/notifications")
 @RequiredArgsConstructor
@@ -34,5 +36,11 @@ public class NotificationController {
             Pageable pageable) {
         Page<NotificationResponseDto> response = notificationService.getNotifications(status, type, pageable);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<NotificationResponseDto> retryNotification(@PathVariable UUID id) {
+        NotificationResponseDto responseDto = notificationService.retryNotification(id);
+        return ResponseEntity.ok(responseDto);
     }
 }
